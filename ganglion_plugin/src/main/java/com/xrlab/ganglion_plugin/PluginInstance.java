@@ -50,6 +50,7 @@ public class PluginInstance {
     private static int mImpedanceCommandIdx = 0;
 
     public boolean mConnected = false;
+    public boolean mConnecting = false;
 
     private String mDeviceName;
     private String mDeviceAddress;
@@ -113,6 +114,11 @@ public class PluginInstance {
 
     public final void Init()
     {
+        if(mScanning || mConnecting)
+        {
+            Log.i(TAG,"Is already Scanning/Connecting");
+            return;
+        }
         unityActivity.requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 0);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -155,6 +161,7 @@ public class PluginInstance {
                             Log.i(TAG, "Found Ganglion device: " + bluetoothDevice.getName() + bluetoothDevice.getAddress());
                             scanner.stopScan(scanCallback);
                             mScanning = false;
+                            mConnecting = true;
 
                             mDeviceAddress = bluetoothDevice.getAddress();
                             mDeviceName = deviceName;
@@ -171,11 +178,11 @@ public class PluginInstance {
                 }
             });
         }
-
         @Override
         public void onScanFailed(int errorCode) {
             super.onScanFailed(errorCode);
             Log.i(TAG, "onScanFailed， errorCode = " + errorCode);
+            mScanning = false;
         }
     };
 
@@ -230,6 +237,7 @@ public class PluginInstance {
             if (BluetoothService.ACTION_GATT_CONNECTED.equals(action)) {
                 Log.i(TAG, "GattServer Connected");
                 mConnected = true;
+                mConnecting = false;
                 //updateConnectionState(R.string.connected);
 
             } else if (BluetoothService.ACTION_GATT_DISCONNECTED.equals(action)) {

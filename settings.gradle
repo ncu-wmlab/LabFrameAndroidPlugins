@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 rootProject.name = "LabFrameAndroidPlugins"
 include ':app'
 include ':ganglion_plugin'
+include ':labframe_plugin'
