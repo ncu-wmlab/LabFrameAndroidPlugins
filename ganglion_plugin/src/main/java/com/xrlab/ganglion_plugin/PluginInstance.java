@@ -7,12 +7,8 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
@@ -25,11 +21,8 @@ import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
-import android.bluetooth.BluetoothAdapter;
 
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -44,14 +37,12 @@ public class PluginInstance {
     private boolean mScanning;
     BluetoothLeScanner scanner;
     private BluetoothService mBluetoothLeService;
-    private static final byte[] mCommands = {'b', 's'};
     private static int mCommandIdx = 0;
-    private static final byte[] mImpedanceCommands = {'z', 'Z'};
-    private static int mImpedanceCommandIdx = 0;
 
     public boolean mConnected = false;
     public boolean mConnecting = false;
 
+    public  String mPreferredDeviceName = "";
     private String mDeviceName;
     private String mDeviceAddress;
 
@@ -68,6 +59,10 @@ public class PluginInstance {
         unityActivity = act;
     }
 
+    public final void SetPreferredGanglionName(String s)
+    {
+        mPreferredDeviceName = s;
+    }
     public final void StreamImpedance()
     {
         // send
@@ -119,17 +114,20 @@ public class PluginInstance {
             Log.i(TAG,"Is already Scanning/Connecting");
             return;
         }
+
         unityActivity.requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 0);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (!mBluetoothAdapter.isEnabled())
-            mBluetoothAdapter.enable();
+
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
             Toast.makeText(unityActivity, "error_bluetooth_not_supported", Toast.LENGTH_SHORT).show();
         } else {
             Log.i(TAG, "Bluetooth Adapter available");
         }
+        if (!mBluetoothAdapter.isEnabled())
+            mBluetoothAdapter.enable();
+
         scanner = mBluetoothAdapter.getBluetoothLeScanner();
         scanner.startScan(scanCallback);
         mScanning = true;
@@ -152,29 +150,36 @@ public class PluginInstance {
             unityActivity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    if (bluetoothDevice != null && bluetoothDevice.getName() != null) {
-                        Log.i(TAG, "BT Scan device = " + bluetoothDevice.getName() + bluetoothDevice.getAddress());
-                        String deviceName = bluetoothDevice.getName();
-                        mIsDeviceGanglion = bluetoothDevice.getName().toUpperCase().contains("GANGLION");
+                    if (bluetoothDevice == null || bluetoothDevice.getName() == null)
+                        return;
 
-                        if (deviceName.contains("Ganglion")) {
-                            Log.i(TAG, "Found Ganglion device: " + bluetoothDevice.getName() + bluetoothDevice.getAddress());
-                            scanner.stopScan(scanCallback);
-                            mScanning = false;
-                            mConnecting = true;
+                    String deviceName = bluetoothDevice.getName();
+                    String deviceAddr = bluetoothDevice.getAddress();
+                    mIsDeviceGanglion = bluetoothDevice.getName().toUpperCase().contains("GANGLION");
 
-                            mDeviceAddress = bluetoothDevice.getAddress();
-                            mDeviceName = deviceName;
-
-                            unityActivity.registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
-
-                            Intent gattServiceIntent = new Intent(unityActivity, BluetoothService.class);
-
-                            Log.i(TAG, "Creating Service to Handle all further BLE Interactions");
-
-                            unityActivity.bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
-                        }
+                    // Check is (preferred) Ganglion
+                    if (!deviceName.contains("Ganglion")) {
+                        Log.i(TAG, "BT Scan device = " + deviceName + deviceAddr);
+                        return;
                     }
+                    if(!mPreferredDeviceName.isEmpty() && !deviceName.contains(mPreferredDeviceName)) {
+                        Log.i(TAG, "BT Found unpreferred Ganglion device = " + deviceName + deviceAddr);
+                        return;
+                    }
+
+                    Log.i(TAG, "BT Found Ganglion device = " + deviceName + deviceAddr);
+                    scanner.stopScan(scanCallback);
+                    mScanning = false;
+                    mConnecting = true;
+
+                    mDeviceName = deviceName;
+                    mDeviceAddress = deviceAddr;
+
+                    unityActivity.registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+
+                    Intent gattServiceIntent = new Intent(unityActivity, BluetoothService.class);
+                    unityActivity.bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+                    Log.i(TAG, "Created Service to Handle all further BLE Interactions");
                 }
             });
         }
@@ -238,12 +243,10 @@ public class PluginInstance {
                 Log.i(TAG, "GattServer Connected");
                 mConnected = true;
                 mConnecting = false;
-                //updateConnectionState(R.string.connected);
 
             } else if (BluetoothService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 Log.v(TAG, "GattServer Disconnected");
                 mConnected = false;
-                //updateConnectionState(R.string.disconnected);
 
             } else if (BluetoothService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 Log.v(TAG, "GattServer Services Discovered");
@@ -255,19 +258,10 @@ public class PluginInstance {
                 if (Objects.equals(dataType, "RAW")) {
                     int[] samples = intent.getIntArrayExtra(BluetoothService.SAMPLE_ID);
                     int[] intentData1 = intent.getIntArrayExtra(BluetoothService.FULL_DATA_1);
-//                    writetoCSV( path, fileName,
-//                            samples[0] + "," + intentData1[0] + "," + intentData1[1] + "," + intentData1[2] + "," + intentData1[3] +"\n");
                 } else if (Objects.equals(dataType, "19BIT")) {
                     int[] samples = intent.getIntArrayExtra(BluetoothService.SAMPLE_ID);
                     int[] intentData1 = intent.getIntArrayExtra(BluetoothService.FULL_DATA_1);
                     int[] intentData2 = intent.getIntArrayExtra(BluetoothService.FULL_DATA_2);
-
-//                    Log.i(TAG, samples[0] + "," + intentData1[0] + "," + intentData1[1] + "," + intentData1[2] + "," + intentData1[3] +"\n"  +
-//                            samples[1] + "," + intentData2[0] + "," + intentData2[1] + "," + intentData2[2] + "," + intentData2[3]);
-//                    writetoCSV( path, fileName,
-//                            samples[0] + "," + intentData1[0] + "," + intentData1[1] + "," + intentData1[2] + "," + intentData1[3] +"\n" +
-//                                    samples[1] + "," + intentData2[0] + "," + intentData2[1] + "," + intentData2[2] + "," + intentData2[3] +"\n");
-
                 } else {
                     //handle this
                 }
