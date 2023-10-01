@@ -32,7 +32,7 @@ import java.util.UUID;
 
 @SuppressLint("MissingPermission")
 public class BluetoothService extends Service {
-    private final static String TAG = "LabFrame_GanglionPlugin";
+    private final static String TAG = "LabFrame_GanglionPlugin_BTService";
 
 
     private BluetoothManager mBluetoothManager;
@@ -530,7 +530,8 @@ public class BluetoothService extends Service {
         Log.i(TAG,"Connecting to GATT Server on the Device");
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
-        mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
+        // update: no, we want auto-reconnect.
+        mBluetoothGatt = device.connectGatt(this, true, mGattCallback);
         Log.i(TAG, "Trying to create a new connection.");
         mBluetoothDeviceAddress = address;
         mConnectionState = STATE_CONNECTING;

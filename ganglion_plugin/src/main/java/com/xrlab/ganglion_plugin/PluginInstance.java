@@ -37,7 +37,7 @@ import java.util.Objects;
 
 @SuppressLint("MissingPermission")
 public class PluginInstance {
-    private static final String TAG = "LabFrame_GanglionPlugin";
+    private static final String TAG = "LabFrame_GanglionPlugin_PluginInstance";
     private static Activity unityActivity;
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mIsDeviceGanglion;
@@ -127,11 +127,11 @@ public class PluginInstance {
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
             Toast.makeText(unityActivity, "error_bluetooth_not_supported", Toast.LENGTH_SHORT).show();
-        } else {
-            Log.i(TAG, "Bluetooth Adapter available");
+            return;
         }
         scanner = mBluetoothAdapter.getBluetoothLeScanner();
         scanner.startScan(scanCallback);
+        Log.i(TAG, "Start Scanning");
         mScanning = true;
     }
 
