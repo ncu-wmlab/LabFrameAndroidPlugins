@@ -18,13 +18,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Timer;
 
 //import static com.unity3d.player.UnityPlayer.UnitySendMessage;
 
@@ -41,6 +44,9 @@ public class PluginInstance {
 
     public boolean mConnected = false;
     public boolean mConnecting = false;
+
+    public boolean mUseEeg = false;
+    public boolean mUseImpedance = false;
 
     public  String mPreferredDeviceName = "";
     private String mDeviceName;
@@ -59,13 +65,14 @@ public class PluginInstance {
         unityActivity = act;
     }
 
-    public final void SetPreferredGanglionName(String s)
+    public final void SetPreferredGanglionName(String s) // called by unity
     {
         mPreferredDeviceName = s;
     }
-    public final void StreamImpedance()
+    public final void StreamImpedance() // called by unity
     {
         // send
+        mUseEeg = true;
         //char cmd = (char) mImpedanceCommands[mImpedanceCommandIdx];
         char cmd = (char) 'z';
         Log.i(TAG, "Sending Command : " + cmd);
@@ -73,9 +80,10 @@ public class PluginInstance {
         mBluetoothLeService.writeCharacteristic((mGanglionSend));
         // mImpedanceCommandIdx = (mImpedanceCommandIdx + 1) % mImpedanceCommands.length; //update for next run to toggle off
     }
-    public final void StopStreamImpedance()
+    public final void StopStreamImpedance() // called by unity
     {
         // send
+        mUseEeg = false;
         //char cmd = (char) mImpedanceCommands[mImpedanceCommandIdx];
         char cmd = (char) 'Z';
         Log.i(TAG, "Sending Command : " + cmd);
@@ -86,6 +94,7 @@ public class PluginInstance {
     public final void StreamData() // call by Unity, start get data from ganglion
     {
         // send
+        mUseImpedance = true;
         char cmd = (char) 'b';
         Log.i(TAG, "Sending Command : " + cmd);
         mGanglionSend.setValue(new byte[]{(byte) cmd});
@@ -95,6 +104,7 @@ public class PluginInstance {
     public final void StopStreamData() // call by Unity, start get data from ganglion
     {
         // send
+        mUseImpedance = false;
         char cmd = (char) 's';
         Log.i(TAG, "Sending Command : " + cmd);
         mGanglionSend.setValue(new byte[]{(byte) cmd});
@@ -243,6 +253,17 @@ public class PluginInstance {
                 Log.i(TAG, "GattServer Connected");
                 mConnected = true;
                 mConnecting = false;
+                if(mUseImpedance || mUseEeg)
+                    new Handler(Looper.getMainLooper()).postDelayed(()->{
+                        if(mUseEeg) {
+                            Log.i(TAG, "Resume EEG");
+                            StreamData();
+                        }
+                        if(mUseImpedance) {
+                            Log.i(TAG, "Resume Impedance");
+                            StreamImpedance();
+                        }
+                    }, 2000);
 
             } else if (BluetoothService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 Log.v(TAG, "GattServer Disconnected");

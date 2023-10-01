@@ -219,7 +219,7 @@ public class BluetoothService extends Service {
         // convert from ASCII to actual value
         String temp = new String(data, 0, data.length-1, StandardCharsets.UTF_8);
         int impedNum = Integer.parseInt(temp) / 2;
-        Log.i(TAG, Integer.toString(impedNum));
+        Log.i(TAG, "impedNum="+Integer.toString(impedNum));
 
         Map<Integer, Integer> map = new HashMap();
         map.put(packetID-201, impedNum);
@@ -228,6 +228,7 @@ public class BluetoothService extends Service {
         String strData = gson.toJson(map);
 
         // UnitySendMessage parameter only accept string or a number
+        Log.v(TAG, "SendImp "+strData);
         UnitySendMessage("GanglionManager", "ReceiveImpedance", strData);
     }
 
@@ -300,6 +301,7 @@ public class BluetoothService extends Service {
         String strData = gson.toJson(map);
 
         // UnitySendMessage parameter only accept string or a number
+        Log.v(TAG, "SendEEG "+strData);
         UnitySendMessage("GanglionManager", "ReceiveData", strData);
     }
 
