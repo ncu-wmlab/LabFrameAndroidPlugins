@@ -72,7 +72,7 @@ public class PluginInstance {
     public final void StreamImpedance() // called by unity
     {
         // send
-        mUseEeg = true;
+        mUseImpedance = true;
         //char cmd = (char) mImpedanceCommands[mImpedanceCommandIdx];
         char cmd = (char) 'z';
         Log.i(TAG, "Sending Command : " + cmd);
@@ -83,7 +83,7 @@ public class PluginInstance {
     public final void StopStreamImpedance() // called by unity
     {
         // send
-        mUseEeg = false;
+        mUseImpedance = false;
         //char cmd = (char) mImpedanceCommands[mImpedanceCommandIdx];
         char cmd = (char) 'Z';
         Log.i(TAG, "Sending Command : " + cmd);
@@ -94,7 +94,7 @@ public class PluginInstance {
     public final void StreamData() // call by Unity, start get data from ganglion
     {
         // send
-        mUseImpedance = true;
+        mUseEeg = true;
         char cmd = (char) 'b';
         Log.i(TAG, "Sending Command : " + cmd);
         mGanglionSend.setValue(new byte[]{(byte) cmd});
@@ -104,7 +104,7 @@ public class PluginInstance {
     public final void StopStreamData() // call by Unity, start get data from ganglion
     {
         // send
-        mUseImpedance = false;
+        mUseEeg = false;
         char cmd = (char) 's';
         Log.i(TAG, "Sending Command : " + cmd);
         mGanglionSend.setValue(new byte[]{(byte) cmd});
@@ -113,6 +113,8 @@ public class PluginInstance {
     }
     public final void Disconnect() // call by Unity
     {
+        mUseEeg = false;
+        mUseImpedance = false;
         mBluetoothLeService.disconnect();
     }
 
@@ -253,17 +255,19 @@ public class PluginInstance {
                 Log.i(TAG, "GattServer Connected");
                 mConnected = true;
                 mConnecting = false;
-                if(mUseImpedance || mUseEeg)
+                // Delay some time then resume eeg/impedance stream
+                if(mUseEeg) {
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        Log.i(TAG, "Resume EEG");
+                        StreamData();
+                    }, 1000);
+                }
+                if(mUseImpedance) {
                     new Handler(Looper.getMainLooper()).postDelayed(()->{
-                        if(mUseEeg) {
-                            Log.i(TAG, "Resume EEG");
-                            StreamData();
-                        }
-                        if(mUseImpedance) {
-                            Log.i(TAG, "Resume Impedance");
-                            StreamImpedance();
-                        }
+                        Log.i(TAG, "Resume Impedance");
+                        StreamImpedance();
                     }, 2000);
+                }
 
             } else if (BluetoothService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 Log.v(TAG, "GattServer Disconnected");
