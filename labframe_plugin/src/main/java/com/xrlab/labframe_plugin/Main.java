@@ -27,7 +27,7 @@ public class Main {
             }
             // request MANAGE_EXTERNAL_STORAGE
             Intent reqPermIntent = new Intent(
-                    Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION,
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
                     Uri.parse("package:"+packageName));
             unityActivity.startActivity(reqPermIntent);
             MakeToast(unityActivity, "Please grant the permission and restart the app!");
