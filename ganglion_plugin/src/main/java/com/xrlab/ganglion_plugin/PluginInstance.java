@@ -18,6 +18,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -121,13 +122,37 @@ public class PluginInstance {
 
     public final void Init()
     {
+        // Check permissions
+        String[] perms;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) { // Android 12 (API 31)
+            perms = new String[] {
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+            };
+        }
+        else {
+            perms = new String[]{
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION};
+        }
+        boolean isPermPassed = true;
+        for (String p: perms) {
+            isPermPassed &= (unityActivity.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED);
+        }
+        if(!isPermPassed) {
+            Log.w(TAG, "Permission not granted");
+            unityActivity.requestPermissions(perms, 100);
+            return;
+        }
+
+        // Check isConnected / isConnecting
         if(mScanning || mConnecting)
         {
             Log.i(TAG,"Is already Scanning/Connecting");
             return;
         }
-
-        unityActivity.requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 0);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 

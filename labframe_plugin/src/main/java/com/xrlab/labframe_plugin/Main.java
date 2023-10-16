@@ -8,9 +8,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.Toast;
 
 public class Main {
+    private static final String TAG = "LabFramePlugin_Main";
+
     /**
      * Check storage permission
      * @param unityActivity
@@ -44,11 +47,25 @@ public class Main {
     }
 
     /**
+     * Open apk by package name
+     * @param unityActivity
+     * @param packageName
+     */
+    public static void OpenApk(Activity unityActivity, String packageName) {
+        Log.d(TAG, "OpenApk "+packageName);
+        Intent launchIntent = unityActivity.getPackageManager().getLaunchIntentForPackage(packageName);
+        //launchIntent.putExtra("User_Info", user_info);
+        unityActivity.startActivity(launchIntent);
+    }
+
+    /**
      * Show toast
      * @param unityActivity
      * @param msg
      */
     public static void MakeToast(Activity unityActivity, String msg) {
+        Log.d(TAG, "MakeToast msg="+msg);
         Toast.makeText(unityActivity, msg, Toast.LENGTH_LONG).show();
     }
+
 }
