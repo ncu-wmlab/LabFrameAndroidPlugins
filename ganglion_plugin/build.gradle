@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
 //        applicationId "com.xrlab.ganglion_plugin"
-        minSdk 24
+        minSdk 23
         targetSdk 33
         versionCode 1
         versionName "1.0"
@@ -32,8 +32,8 @@ dependencies {
 
     compileOnly 'androidx.appcompat:appcompat:1.6.1'
     compileOnly 'com.google.android.material:material:1.9.0'
-    implementation 'com.google.code.gson:gson:2.9.0'
-    compileOnly files('libs/UnityPlayer.jar')
+//    implementation 'com.google.code.gson:gson:2.9.0'
+    compileOnly files('libs/classes.jar')
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

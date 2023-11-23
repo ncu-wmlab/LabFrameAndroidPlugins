@@ -13,22 +13,20 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
-import android.nfc.Tag;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
-import com.google.gson.Gson;
-import com.unity3d.player.UnityPlayer;
 import static com.unity3d.player.UnityPlayer.UnitySendMessage;
 
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import kotlin.text.UStringsKt;
 
 @SuppressLint("MissingPermission")
 public class BluetoothService extends Service {
@@ -219,13 +217,16 @@ public class BluetoothService extends Service {
         // convert from ASCII to actual value
         String temp = new String(data, 0, data.length-1, StandardCharsets.UTF_8);
         int impedNum = Integer.parseInt(temp) / 2;
-        Log.i(TAG, "impedNum="+Integer.toString(impedNum));
+        Log.v(TAG, "impedNum="+impedNum);
 
-        Map<Integer, Integer> map = new HashMap();
-        map.put(packetID-201, impedNum);
+//        Map<Integer, Integer> map = new HashMap();
+//        map.put(packetID-201, impedNum);
+//
+//        Gson gson = new Gson(); // Need to put Gson jar file in Unity 'Assests/Plugins/Android'
+//        String strData = gson.toJson(map);
 
-        Gson gson = new Gson(); // Need to put Gson jar file in Unity 'Assests/Plugins/Android'
-        String strData = gson.toJson(map);
+        // 20231123 JC: since this map has only 1 entry, we use "ch|imp_value"
+        String strData = (packetID-201)+"|"+impedNum;
 
         // UnitySendMessage parameter only accept string or a number
         Log.v(TAG, "SendImp "+strData);
@@ -275,30 +276,39 @@ public class BluetoothService extends Service {
             updatePacketsCount(packetID);
 
         }
-        double[][] scaleStore = new double[2][4];
+
+        String[][] scaleStore = new String[2][4];
 
         for(int i = 0; i < 2;i++){
             for(int j = 0; j < 4;j++) {
                 // Log.i(TAG, "data" + i + " " + j + " " + Double.valueOf(scale_fac_uVolts_per_count * fullData[i][j]));
-                scaleStore[i][j] = scale_fac_uVolts_per_count * fullData[i][j];
+                scaleStore[i][j] = Double.toString(scale_fac_uVolts_per_count * fullData[i][j]);
             }
         }
 
-        Map<String, Double> map = new HashMap();
-        map.put("ch1_1", scaleStore[0][0]);
-        map.put("ch1_2", scaleStore[1][0]);
+//        Map<String, Double> map = new HashMap();
+//        map.put("ch1_1", scaleStore[0][0]);
+//        map.put("ch1_2", scaleStore[1][0]);
+//        map.put("ch2_1", scaleStore[0][1]);
+//        map.put("ch2_2", scaleStore[1][1]);
+//        map.put("ch3_1", scaleStore[0][2]);
+//        map.put("ch3_2", scaleStore[1][2]);
+//        map.put("ch4_1", scaleStore[0][3]);
+//        map.put("ch4_2", scaleStore[1][3]);
 
-        map.put("ch2_1", scaleStore[0][1]);
-        map.put("ch2_2", scaleStore[1][1]);
+//        Gson gson = new Gson(); // Need to put Gson jar file in Unity 'Assests/Plugins/Android'
+//        String strData = gson.toJson(map);
 
-        map.put("ch3_1", scaleStore[0][2]);
-        map.put("ch3_2", scaleStore[1][2]);
-
-        map.put("ch4_1", scaleStore[0][3]);
-        map.put("ch4_2", scaleStore[1][3]);
-
-        Gson gson = new Gson(); // Need to put Gson jar file in Unity 'Assests/Plugins/Android'
-        String strData = gson.toJson(map);
+        // 20231123 JC: since the map has 8 entries, we use "1|2|3|4|5|6|7|8" to represent
+        String strData = String.join("|",
+                scaleStore[0][0],
+                scaleStore[1][0],
+                scaleStore[0][1],
+                scaleStore[1][1],
+                scaleStore[0][2],
+                scaleStore[1][2],
+                scaleStore[0][3],
+                scaleStore[1][3]);
 
         // UnitySendMessage parameter only accept string or a number
         Log.v(TAG, "SendEEG "+strData);

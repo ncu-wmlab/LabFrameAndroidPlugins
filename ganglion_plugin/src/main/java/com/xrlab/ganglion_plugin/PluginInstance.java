@@ -1,5 +1,7 @@
 package com.xrlab.ganglion_plugin;
 
+import com.unity3d.player.UnityPlayer;
+
 import static android.content.Context.BIND_AUTO_CREATE;
 
 import android.Manifest;
@@ -28,30 +30,24 @@ import android.widget.Toast;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Timer;
 
 //import static com.unity3d.player.UnityPlayer.UnitySendMessage;
 
-@SuppressLint("MissingPermission")
 public class PluginInstance {
-    private static final String TAG = "LabFrame_GanglionPlugin_PluginInstance";
-    private static Activity unityActivity;
-    private BluetoothAdapter mBluetoothAdapter;
+    private static final String TAG = "LabFrame_Ganglion_P";
+    private BluetoothLeScanner mBleScanner;
     private boolean mIsDeviceGanglion;
-    private boolean mScanning;
-    BluetoothLeScanner scanner;
     private BluetoothService mBluetoothLeService;
-    private static int mCommandIdx = 0;
 
+    // public, may call by unity
+    public boolean mScanning = false;
     public boolean mConnected = false;
     public boolean mConnecting = false;
-
     public boolean mUseEeg = false;
     public boolean mUseImpedance = false;
-
-    public  String mPreferredDeviceName = "";
-    private String mDeviceName;
-    private String mDeviceAddress;
+    public String mPreferredDeviceName = "";
+    public String mDeviceName;
+    public String mDeviceAddress;
 
     private BluetoothGattCharacteristic mNotifyOnRead;
     private BluetoothGattCharacteristic mGanglionSend;
@@ -62,14 +58,26 @@ public class PluginInstance {
     public final static String UUID_GANGLION_SEND = "2d30c083-f39f-4ce6-923f-3484ea480596";
     public final static String UUID_GANGLION_DISCONNECT = "2d30c084-f39f-4ce6-923f-3484ea480596";
 
+    /**
+     * [Obsolete] Call by unity, init Unity Activity
+     * @param act UnityActivity
+     */
     public static void receiveUnityActivity(Activity act) {
-        unityActivity = act;
+        Log.i(TAG, "`receiveUnityActivity` is obsolete; No need to call `receiveUnityActivity`");
     }
 
-    public final void SetPreferredGanglionName(String s) // called by unity
+    /**
+     * Call by Unity, set mPreferredDeviceName
+     * @param s preferred Device Name
+     */
+    public final void SetPreferredGanglionName(String s)
     {
         mPreferredDeviceName = s;
     }
+
+    /**
+     * Call by Unity
+     */
     public final void StreamImpedance() // called by unity
     {
         // send
@@ -81,7 +89,11 @@ public class PluginInstance {
         mBluetoothLeService.writeCharacteristic((mGanglionSend));
         // mImpedanceCommandIdx = (mImpedanceCommandIdx + 1) % mImpedanceCommands.length; //update for next run to toggle off
     }
-    public final void StopStreamImpedance() // called by unity
+
+    /**
+     * Call by Unity
+     */
+    public final void StopStreamImpedance()
     {
         // send
         mUseImpedance = false;
@@ -92,7 +104,11 @@ public class PluginInstance {
         mBluetoothLeService.writeCharacteristic((mGanglionSend));
         // mImpedanceCommandIdx = (mImpedanceCommandIdx + 1) % mImpedanceCommands.length; //update for next run to toggle off
     }
-    public final void StreamData() // call by Unity, start get data from ganglion
+
+    /**
+     * call by Unity, start get data from ganglion
+     */
+    public final void StreamData()
     {
         // send
         mUseEeg = true;
@@ -102,7 +118,11 @@ public class PluginInstance {
         mBluetoothLeService.writeCharacteristic((mGanglionSend));
         // mCommandIdx = (mCommandIdx + 1) % mCommands.length; //update for next run to toggle off
     }
-    public final void StopStreamData() // call by Unity, start get data from ganglion
+
+    /**
+     * Call by Unity, start get data from ganglion
+     */
+    public final void StopStreamData()
     {
         // send
         mUseEeg = false;
@@ -112,14 +132,25 @@ public class PluginInstance {
         mBluetoothLeService.writeCharacteristic((mGanglionSend));
         // mCommandIdx = (mCommandIdx + 1) % mCommands.length; //update for next run to toggle off
     }
+
+    /**
+     * Call by Unity. Disconnect
+     */
+    @SuppressLint("MissingPermission")
     public final void Disconnect() // call by Unity
     {
         mUseEeg = false;
         mUseImpedance = false;
-        mBluetoothLeService.disconnect();
+        if(mScanning)
+            mBleScanner.stopScan(scanCallback);
+        mScanning = false;
+        if(mBluetoothLeService != null)
+            mBluetoothLeService.disconnect();
     }
 
-
+    /**
+     * Call by Unity, Init a connection
+     */
     public final void Init()
     {
         // Check permissions
@@ -139,35 +170,33 @@ public class PluginInstance {
         }
         boolean isPermPassed = true;
         for (String p: perms) {
-            isPermPassed &= (unityActivity.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED);
+            isPermPassed &= (UnityPlayer.currentActivity.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED);
         }
         if(!isPermPassed) {
             Log.w(TAG, "Permission not granted");
-            unityActivity.requestPermissions(perms, 100);
+            UnityPlayer.currentActivity.requestPermissions(perms, 100);
             return;
         }
 
         // Check isConnected / isConnecting
-        if(mScanning || mConnecting)
-        {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null) {
+            Toast.makeText(UnityPlayer.currentActivity, "error_bluetooth_not_supported", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        mBleScanner = mBluetoothAdapter.getBluetoothLeScanner();
+        if(mScanning || mConnecting) {
             Log.i(TAG,"Is already Scanning/Connecting");
             return;
         }
 
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        // Checks if Bluetooth is supported on the device.
-        if (mBluetoothAdapter == null) {
-            Toast.makeText(unityActivity, "error_bluetooth_not_supported", Toast.LENGTH_SHORT).show();
-            return;
-        }
         if (!mBluetoothAdapter.isEnabled())
             mBluetoothAdapter.enable();
 
-        scanner = mBluetoothAdapter.getBluetoothLeScanner();
-        scanner.startScan(scanCallback);
-        Log.i(TAG, "Start Scanning");
+        // start scan
+        mBleScanner.startScan(scanCallback);
         mScanning = true;
+        Log.i(TAG, "Start Scanning");
     }
 
     private static IntentFilter makeGattUpdateIntentFilter() {
@@ -184,8 +213,9 @@ public class PluginInstance {
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
             final BluetoothDevice bluetoothDevice = result.getDevice();
-            unityActivity.runOnUiThread(new Runnable() {
+            UnityPlayer.currentActivity.runOnUiThread(new Runnable() {
                 @Override
+                @SuppressLint("MissingPermission")
                 public void run() {
                     if (bluetoothDevice == null || bluetoothDevice.getName() == null)
                         return;
@@ -205,17 +235,17 @@ public class PluginInstance {
                     }
 
                     Log.i(TAG, "BT Found Ganglion device = " + deviceName + deviceAddr);
-                    scanner.stopScan(scanCallback);
+                    mBleScanner.stopScan(scanCallback);
                     mScanning = false;
                     mConnecting = true;
 
                     mDeviceName = deviceName;
                     mDeviceAddress = deviceAddr;
 
-                    unityActivity.registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+                    UnityPlayer.currentActivity.registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
 
-                    Intent gattServiceIntent = new Intent(unityActivity, BluetoothService.class);
-                    unityActivity.bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+                    Intent gattServiceIntent = new Intent(UnityPlayer.currentActivity, BluetoothService.class);
+                    UnityPlayer.currentActivity.bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
                     Log.i(TAG, "Created Service to Handle all further BLE Interactions");
                 }
             });
@@ -240,7 +270,6 @@ public class PluginInstance {
             // Automatically connects to the device upon successful start-up initialization.
             Log.i(TAG, "Trying to connect to GATTServer on: " + mDeviceName + " Address: " + mDeviceAddress);
             mBluetoothLeService.connect(mDeviceAddress);
-            mCommandIdx = 0;
         }
 
         @Override
@@ -262,7 +291,7 @@ public class PluginInstance {
                 return false;
             }
         }
-        Toast.makeText(unityActivity, "Notify: " + toastMsg, Toast.LENGTH_SHORT).show();
+        Toast.makeText(UnityPlayer.currentActivity, "Notify: " + toastMsg, Toast.LENGTH_SHORT).show();
         return true;//indicates reassignment needed for mNotifyOnRead
     }
 
@@ -358,7 +387,7 @@ public class PluginInstance {
     }
 
     private void updateConnectionState(final int resourceId) {
-        unityActivity.runOnUiThread(new Runnable() {
+        UnityPlayer.currentActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 //mConnectionState.setText(resourceId);

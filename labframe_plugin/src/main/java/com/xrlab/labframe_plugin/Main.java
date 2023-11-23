@@ -1,5 +1,8 @@
 package com.xrlab.labframe_plugin;
 
+import com.unity3d.player.UnityPlayer;
+import com.unity3d.player.UnityPlayerActivity;
+
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
@@ -16,12 +19,11 @@ public class Main {
 
     /**
      * Check storage permission
-     * @param unityActivity
      * @param packageName Unity: Application.identifier
      * @return
      */
-    public static boolean RequestStoragePermission(Activity unityActivity, String packageName) {
-        PackageManager packageManager = unityActivity.getPackageManager();
+    public static boolean RequestStoragePermission(String packageName) {
+        PackageManager packageManager = UnityPlayer.currentActivity.getPackageManager();
 
         // >= Android 11
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -32,8 +34,8 @@ public class Main {
             Intent reqPermIntent = new Intent(
                     Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
                     Uri.parse("package:"+packageName));
-            unityActivity.startActivity(reqPermIntent);
-            MakeToast(unityActivity, "Please grant the permission and restart the app!");
+            UnityPlayer.currentActivity.startActivity(reqPermIntent);
+            MakeToast("Please grant the permission and restart the app!");
             return false;
         }
         else { // Android <= 10
@@ -41,31 +43,29 @@ public class Main {
                     Manifest.permission.READ_EXTERNAL_STORAGE,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE
             };
-            unityActivity.requestPermissions(perms, 0);
+            UnityPlayer.currentActivity.requestPermissions(perms, 0);
             return true;
         }
     }
 
     /**
      * Open apk by package name
-     * @param unityActivity
      * @param packageName
      */
-    public static void OpenApk(Activity unityActivity, String packageName) {
+    public static void OpenApk(String packageName) {
         Log.d(TAG, "OpenApk "+packageName);
-        Intent launchIntent = unityActivity.getPackageManager().getLaunchIntentForPackage(packageName);
+        Intent launchIntent = UnityPlayer.currentActivity.getPackageManager().getLaunchIntentForPackage(packageName);
         //launchIntent.putExtra("User_Info", user_info);
-        unityActivity.startActivity(launchIntent);
+        UnityPlayer.currentActivity.startActivity(launchIntent);
     }
 
     /**
      * Show toast
-     * @param unityActivity
      * @param msg
      */
-    public static void MakeToast(Activity unityActivity, String msg) {
+    public static void MakeToast(String msg) {
         Log.d(TAG, "MakeToast msg="+msg);
-        Toast.makeText(unityActivity, msg, Toast.LENGTH_LONG).show();
+        Toast.makeText(UnityPlayer.currentActivity, msg, Toast.LENGTH_LONG).show();
     }
 
 }
